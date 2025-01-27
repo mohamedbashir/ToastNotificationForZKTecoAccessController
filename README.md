@@ -2,7 +2,7 @@
 
 ## Overview
 
-**ToastNotificationForAccessController** is a .NET application designed to manage access controllers, providing real-time status updates and error handling via toast notifications.
+**Toast Notification For ZKTeco Access Controller** is a .NET application designed to manage access controllers, providing real-time status updates and error handling via toast notifications.
 
 This application simplifies the monitoring and management of access panel events by establishing continuous connections, processing real-time logs, and alerting users of important events or connection issues.
 
