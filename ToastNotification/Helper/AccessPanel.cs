@@ -27,19 +27,19 @@ public class AccessPanel
     {
         if (_handle == IntPtr.Zero)
             return false;
-       
-        return _handle != IntPtr.Zero;
+
+        byte dummy = 0;
+        int result = GetRTLog(_handle, ref dummy, 1);
+
+        if (result == -1)
+        {
+            _handle = IntPtr.Zero;
+            return false;
+        }
+
+        return true;
     }
 
-    [MethodImpl(MethodImplOptions.Synchronized)]
-    public void Disconnect()
-    {
-        if (IsConnected())
-        {
-            Disconnect(_handle);
-            _handle = IntPtr.Zero;
-        }
-    }
 
     /**
      * Connects to a device using the TCP protocol
@@ -65,63 +65,43 @@ public class AccessPanel
     [MethodImpl(MethodImplOptions.Synchronized)]
     public AccessPanelEvent? GetEventLog(string ip)
     {
-        if (IsConnected())
+        if (!IsConnected())
+            return null;
+
+        byte[] buf = new byte[LargeBufferSize];
+        if (GetRTLog(_handle, ref buf[0], buf.Length) > -1)
         {
-            byte[] buf = new byte[LargeBufferSize];
-            if (GetRTLog(_handle, ref buf[0], buf.Length) > -1)
+            string[] events = Encoding.ASCII.GetString(buf).Replace("\0", "").Trim()
+                .Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+            List<AccessPanelRtEvent> rtEvents = new List<AccessPanelRtEvent>();
+            AccessPanelDoorsStatus? doorsStatus = null;
+
+            foreach (var evtStr in events)
             {
-                // string tempLastEventTime = _lastEventTime;
-                string[] events = Encoding.ASCII.GetString(buf).Replace("\0", "").Trim()
-                    .Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                List<AccessPanelRtEvent> rtEvents = new List<AccessPanelRtEvent>();
-                AccessPanelDoorsStatus? doorsStatus = null;
-                for (int i = 0; i < events.Length; i++)
+                if (evtStr.Length == 0 || evtStr[0] == '\0')
+                    continue;
+
+                var values = evtStr.Split(',');
+
+                if (values.Length != 7)
+                    continue;
+
+                if (values[4].Equals("255"))
                 {
-                    if (events[i][0] == '\0')
-                    {
-                        continue;
-                    }
-
-                    string[] values = events[i].Split(new[] { ',' });
-                    if (values.Length != 7)
-                    {
-                        continue;
-                    }
-
-                    // if (String.Compare(values[0], tempLastEventTime, StringComparison.Ordinal) > 0)
-                    // {
-                    //     tempLastEventTime = values[0];
-                    // }
-
-                    // _lastEventTime = values[0];
-                    if (values[4].Equals("255"))
-                    {
-                        doorsStatus = new AccessPanelDoorsStatus(values[1], values[2]);
-                    }
-                    else
-                    {
-                        // if (String.Compare(values[0], _lastEventTime, StringComparison.Ordinal) < 0)
-                        // {
-                        //     continue;
-                        // }
-
-                        int.TryParse(values[2], out var card);
-
-                        AccessPanelRtEvent evt = new AccessPanelRtEvent(values[0], values[1], card, values[3],
-                            int.Parse(values[4]), int.Parse(values[5]));
-                        rtEvents.Add(evt);
-                    }
+                    doorsStatus = new AccessPanelDoorsStatus(values[1], values[2]);
                 }
-
-                // _lastEventTime = tempLastEventTime;
-                return new AccessPanelEvent(doorsStatus, rtEvents.ToArray());
+                else
+                {
+                    int.TryParse(values[2], out var card);
+                    rtEvents.Add(new AccessPanelRtEvent(values[0], values[1], card, values[3],
+                        int.Parse(values[4]), int.Parse(values[5])));
+                }
             }
-            else
-                return null;
+
+            return new AccessPanelEvent(doorsStatus, rtEvents);
         }
-        else
-            Connect(ip);
-        
+
         return null;
     }
+
 }

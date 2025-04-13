@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using ToastNotification.Helper;
 namespace ToastNotification;
 
@@ -12,6 +12,7 @@ public partial class MainForm : Form
     private bool _isClosing = false;
     AccessPanel AccessPanel = new AccessPanel();
     private string accessPanelIP = string.Empty;
+    private bool isReconnecting = false; 
 
     public MainForm()
     {
@@ -38,8 +39,6 @@ public partial class MainForm : Form
     }
     private async Task ContinuousConnectionAttempts(string ipAddress)
     {
-        while (!_isClosing)
-        {
             bool connected = await AttemptConnectionCycle(ipAddress);
             if (!connected)
             {
@@ -48,19 +47,10 @@ public partial class MainForm : Form
             }
             else
             {
-                ShowToast("Error", "Failed to connect to access controller");
-                break; // Exit the loop when successfully connected
-            }
-        }
+                ShowToast("SUCCESS", "Connected to access controller");
+            }  
     }
 
-    public void ShowToast(string type, string message)
-    {
-        ErrorForm errorForm = new ErrorForm(type, message);
-        errorForm.ShowInTaskbar = false;
-        errorForm.TopMost = true;
-        errorForm.Show();
-    }
 
     private async Task<bool> AttemptConnectionCycle(string ipAddress)
     {
@@ -84,14 +74,44 @@ public partial class MainForm : Form
         return false;
     }
 
-    private void trglog_Tick(object sender, EventArgs e)
+    private async void trglog_Tick(object sender, EventArgs e)
     {
-        var test = AccessPanel.GetEventLog(accessPanelIP);
-        if (test != null) 
-            ShowToast("Error", $"Door Status :{test.DoorsStatus} ,Event :{test.Events}");
-        
-        ShowToast("Error", $"Door Status :{0} ,Event :{0}");
+        if (!AccessPanel.IsConnected())
+        {
+            if (!isReconnecting)
+            {
+                isReconnecting = true;
+                trglog.Enabled = false;
+                ShowToast("ERROR", "Connection lost. Attempting to reconnect...");
+
+                bool reconnected = await AttemptConnectionCycle(accessPanelIP);
+
+                if (reconnected)
+                {
+                    ShowToast("SUCCESS", "Reconnected to access controller.");
+                    trglog.Enabled = true;
+                }
+                else
+                {
+                    ShowToast("ERROR", "Failed to reconnect.");
+                }
+
+                isReconnecting = false;
+            }
+
+            return;
+        }
+
+        var result = AccessPanel.GetEventLog(accessPanelIP);
+        if (result != null)
+        {
+            foreach (var item in result.Events)
+            {
+                ShowToast("Info", $"{item}");
+            }
+        }
     }
+
 
     // Method to read IP from the config file
     private string ReadIpFromFile(string fileName)
@@ -103,6 +123,14 @@ public partial class MainForm : Form
         }
         ShowToast("ERROR", $"Configuration file not found at: {filePath}");
         return string.Empty;
+    }
+
+    public void ShowToast(string type, string message)
+    {
+        ErrorForm errorForm = new ErrorForm(type, message);
+        errorForm.ShowInTaskbar = false;
+        errorForm.TopMost = true;
+        errorForm.Show();
     }
 
 }

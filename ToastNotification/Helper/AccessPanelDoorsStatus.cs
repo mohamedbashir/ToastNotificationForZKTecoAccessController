@@ -33,22 +33,23 @@ public class AccessPanelDoorsStatus
 
     public string ToString(int i)
     {
-        string a = (IsAlarmOn(i) ? ", ALARM!" : "");
+        string a = (IsAlarmOn(i) ? ", إنذار!" : "");
         if (IsDoorClosed(i))
         {
-            return "Closed" + a;
+            return "مغلق" + a;
         }
 
         if (IsDoorOpen(i))
         {
-            return "Open" + a;
+            return "مفتوح" + a;
         }
 
         if (!IsDoorSensorWorking(i))
         {
-            return "Sensor Not Working" + a;
+            return "المستشعر لا يعمل" + a;
         }
 
-        return "Code " + ((_door >> (i * 8)) & 255) + a;
+        return "الكود " + ((_door >> (i * 8)) & 255) + a;
     }
+
 }

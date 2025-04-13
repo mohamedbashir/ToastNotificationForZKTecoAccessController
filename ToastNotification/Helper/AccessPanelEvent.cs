@@ -3,9 +3,9 @@
 public class AccessPanelEvent
 {
     public readonly AccessPanelDoorsStatus? DoorsStatus;
-    public readonly AccessPanelRtEvent[] Events;
+    public readonly List<AccessPanelRtEvent> Events;
 
-    public AccessPanelEvent(AccessPanelDoorsStatus? doorsStatus, AccessPanelRtEvent[] events)
+    public AccessPanelEvent(AccessPanelDoorsStatus? doorsStatus, List<AccessPanelRtEvent> events)
     {
         this.DoorsStatus = doorsStatus;
         this.Events = events;
