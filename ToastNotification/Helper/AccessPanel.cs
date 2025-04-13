@@ -15,8 +15,8 @@ public class AccessPanel
     private static extern void Disconnect(IntPtr handle);
 
 
-    private const int LargeBufferSize = 1024 * 1024 * 2;
-    IntPtr _handle = IntPtr.Zero;
+    private const int LargeBufferSize = 1024 * 1024 * 2; // 2MB buffer for reading logs
+    private IntPtr _handle = IntPtr.Zero;
 
 
     /**
@@ -40,23 +40,21 @@ public class AccessPanel
         return true;
     }
 
-
     /**
      * Connects to a device using the TCP protocol
      */
     [MethodImpl(MethodImplOptions.Synchronized)]
-    public nint Connect(string ip, int port = 4370,int timeout = 5000)
+    public IntPtr Connect(string ip, int port = 4370, int timeout = 5000)
     {
         if (IsConnected())
-            return 0;    
+            return _handle;  // Already connected, return the handle
 
-        string connStr =
-            $"protocol=TCP,ipaddress={ip},port={port},timeout={timeout},passwd={""}";
+        // Construct the connection string with parameters
+        string connStr = $"protocol=TCP,ipaddress={ip},port={port},timeout={timeout},passwd={""}";
         _handle = Connect(connStr);
-        if (_handle != IntPtr.Zero)
-            return _handle;    
 
-        return 0;
+        // Return the handle if successfully connected
+        return _handle != IntPtr.Zero ? _handle : IntPtr.Zero;
     }
 
     /**
@@ -73,6 +71,7 @@ public class AccessPanel
         {
             string[] events = Encoding.ASCII.GetString(buf).Replace("\0", "").Trim()
                 .Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
             List<AccessPanelRtEvent> rtEvents = new List<AccessPanelRtEvent>();
             AccessPanelDoorsStatus? doorsStatus = null;
 
@@ -103,5 +102,15 @@ public class AccessPanel
 
         return null;
     }
+
+    public void Disconnect()
+    {
+        if (_handle != IntPtr.Zero)
+        {
+            Disconnect(_handle);
+            _handle = IntPtr.Zero;
+        }
+    }
+
 
 }
