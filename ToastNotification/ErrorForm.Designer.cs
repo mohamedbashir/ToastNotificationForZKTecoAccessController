@@ -77,7 +77,7 @@
             // 
             AutoScaleDimensions = new SizeF(9F, 22F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(470, 90);
+            ClientSize = new Size(764, 90);
             Controls.Add(lb_meg);
             Controls.Add(lb_type);
             Controls.Add(picicon);

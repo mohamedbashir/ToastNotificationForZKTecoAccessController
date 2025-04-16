@@ -1,4 +1,5 @@
-﻿using System.Net.NetworkInformation;
+﻿using Newtonsoft.Json;
+using System.Net.NetworkInformation;
 using ToastNotification.Helper;
 
 namespace ToastNotification;
@@ -8,7 +9,6 @@ namespace ToastNotification;
 /// to a ZKTeco Access Controller via plcommpro.dll over TCP.
 /// It uses toast notifications for real-time status updates.
 /// </summary>
-
 public partial class MainForm : Form
 {
     // === Fields ===
@@ -29,13 +29,14 @@ public partial class MainForm : Form
     // IP address of the access panel (set via config or manually)
     private string accessPanelIP = string.Empty;
 
-    // Flag to avoid duplicate reconnections
-    private bool isReconnecting = false; 
+    private string ip;
+
 
     // === Constructor ===
     public MainForm()
     {
         InitializeComponent();
+        LoadConfig();
         AccessPanel = new AccessPanel();
         Opacity = 0;
         ShowInTaskbar = false;
@@ -45,13 +46,10 @@ public partial class MainForm : Form
     // === Form Load ===
     private async void MainForm_Load(object sender, EventArgs e)
     {
-        // Load IP from the file
-        accessPanelIP = ReadIpFromFile("config.txt");
-
         // If the IP was successfully read, attempt the connection
-        if (!string.IsNullOrEmpty(accessPanelIP))
+        if (!string.IsNullOrEmpty(ip))
         {
-            await ContinuousConnectionAttempts(accessPanelIP);
+            await ContinuousConnectionAttempts(ip);
         }
         else
         {
@@ -121,49 +119,51 @@ public partial class MainForm : Form
     {
         if (!AccessPanel.IsConnected())
         {
-            if (!isReconnecting)
+            trglog.Enabled = false;
+
+            ShowToast("ERROR", "Connection lost. Attempting to reconnect...");
+
+            bool reconnected = await AttemptConnectionCycle(accessPanelIP);
+
+            if (reconnected)
             {
-                isReconnecting = true;
-                trglog.Enabled = false;
-                ShowToast("ERROR", "Connection lost. Attempting to reconnect...");
-
-                bool reconnected = await AttemptConnectionCycle(accessPanelIP);
-
-                if (reconnected)
-                {
-                    ShowToast("SUCCESS", "Reconnected to access controller.");
-                    trglog.Enabled = true;
-                }
-                else
-                {
-                    ShowToast("ERROR", "Failed to reconnect.");
-                }
-                isReconnecting = false;
+                ShowToast("SUCCESS", "Reconnected to access controller.");
+                trglog.Enabled = true;
             }
+            else
+                ShowToast("ERROR", "Failed to reconnect.");
+                      
             return;
         }
 
-        var result = AccessPanel.GetEventLog(accessPanelIP);
+        AccessPanelEvent? result = AccessPanel.GetEventLog(accessPanelIP);
         if (result != null)
         {
             foreach (var item in result.Events)
             {
-                ShowToast("Info", $"{item}");
+                ShowToast("Info", $"event :{item}");
             }
         }
     }
 
-
-    // === Read IP Address from Local Config File ===
-    private string ReadIpFromFile(string fileName)
+    private void LoadConfig()
     {
-        string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", fileName);
-        if (File.Exists(filePath))
+        try
         {
-            return File.ReadAllText(filePath).Trim();
+            string configPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"config.json");
+            if (!File.Exists(configPath))
+            {
+                throw new FileNotFoundException("config.json not found");
+            }
+
+            string json = File.ReadAllText(configPath);
+            var config = JsonConvert.DeserializeObject<Config>(json);
+            ip = config.ip;
         }
-        ShowToast("ERROR", $"Configuration file not found at: {filePath}");
-        return string.Empty;
+        catch (Exception ex)
+        {
+            throw;
+        }
     }
 
     // === Display Toast Notifications Using Custom Form ===
